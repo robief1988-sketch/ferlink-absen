@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi & Rekap Rekam Data - FERLINK</title>
+    <!-- SheetJS CDN untuk Ekspor ke Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Library HTML5 QR Code Scanner untuk fitur Scan Kartu -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Trebuchet MS', Arial, sans-serif;
+            background: #f0f7ff;
+            color: #24324a;
+            padding-bottom: 40px;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1877f2, #4361ee);
+            color: white;
+            padding: 18px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(24,119,242,0.25);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-title {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .container { max-width: 800px; margin: 20px auto; padding: 0 15px; }
+
+        /* Navigation Tabs */
+        .tab-nav {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 20px;
+            background: #e2eeec;
+            padding: 6px;
+            border-radius: 16px;
+            overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            background: transparent;
+            color: #475569;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .tab-btn.active {
+            background: white;
+            color: #1877f2;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 2px solid #e3edf5;
+            box-shadow: 0 4px 15px rgba(50,100,150,0.06);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: #1c335a;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: bold;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        input[type="date"], input[type="text"], select, textarea {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid #d7e9f5;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            background: white;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #1877f2; }
+
+        .identity-badge {
+            background: linear-gradient(135deg, #eef5ff, #e3efff);
+            border: 1.5px solid #c8dffd;
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px 30px;
+            font-size: 13px;
+            color: #1e3a6d;
+        }
+        .identity-badge div span { font-weight: bold; color: #1877f2; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            text-align: center;
+        }
+        .stat-box { padding: 10px 5px; border-radius: 12px; font-weight: bold; }
+        .stat-hadir { background: #e8f8ed; color: #1e7e34; border: 1px solid #c3e6cb; }
+        .stat-izin { background: #e6f4ff; color: #0056b3; border: 1px solid #b8daff; }
+        .stat-sakit { background: #fff8e6; color: #856404; border: 1px solid #ffeeba; }
+        .stat-alpa { background: #fde8e8; color: #bd2130; border: 1px solid #f5c6cb; }
+
+        .stat-num { font-size: 18px; display: block; }
+        .stat-lbl { font-size: 11px; opacity: 0.85; }
+
+        .action-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 15px; }
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 13px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .btn-primary { background: #1877f2; color: white; }
+        .btn-primary:hover { background: #1162cd; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-outline { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+        .btn-outline:hover { background: #e2e8f0; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+
+        .student-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+        .student-item {
+            background: #ffffff;
+            border: 2px solid #e3edf5;
+            border-radius: 16px;
+            padding: 12px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .student-name { font-weight: bold; font-size: 15px; color: #273d65; flex-grow: 1; }
+
+        .status-group { display: flex; gap: 4px; }
+        .status-btn { position: relative; }
+        .status-btn input { position: absolute; opacity: 0; cursor: pointer; }
+        .status-label {
+            display: block;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1.5px solid #cbd5e1;
+            background: #f8fafc;
+            color: #64748b;
+            transition: 0.15s;
+        }
+
+        .status-btn input[value="Hadir"]:checked + .status-label { background: #28a745; color: white; border-color: #28a745; }
+        .status-btn input[value="Izin"]:checked + .status-label { background: #007bff; color: white; border-color: #007bff; }
+        .status-btn input[value="Sakit"]:checked + .status-label { background: #ffc107; color: #333; border-color: #ffc107; }
+        .status-btn input[value="Alpa"]:checked + .status-label { background: #dc3545; color: white; border-color: #dc3545; }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            padding: 25px;
+            text-align: center;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding: 10px;
+            font-size: 13px;
+            color: #64748b;
+            font-weight: bold;
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 2px solid #cbd5e1;
+            background: #000;
+        }
+
+        @media(max-width: 600px) {
+            .student-item { flex-direction: column; align-items: flex-start; }
+            .status-group { width: 100%; justify-content: space-between; margin-top: 5px; }
+            .status-label { padding: 6px 8px; font-size: 11px; }
+        }
+
+        /* HALAMAN LOGIN */
+        #loginScreen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #1877f2, #4361ee);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: white;
+            width: 100%;
+            max-width: 380px;
+            padding: 30px;
+            border-radius: 24px;
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+        }
+
+        .login-icon { font-size: 50px; margin-bottom: 10px; }
+        .login-box h2 { color: #1c335a; margin-bottom: 8px; }
+        .login-box p { color: #64748b; font-size: 13px; margin-bottom: 20px; }
+
+        #passwordInput {
+            width: 100%;
+            padding: 13px;
+            border: 2px solid #d7e9f5;
+            border-radius: 12px;
+            font-size: 15px;
+            outline: none;
+            margin-bottom: 12px;
+        }
+        #passwordInput:focus { border-color: #1877f2; }
+        .login-box button {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: #1877f2;
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .login-box button:hover { background: #1162cd; }
+        #loginMessage { margin-top: 12px; font-size: 13px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<!-- HALAMAN LOGIN -->
+<div id="loginScreen">
+    <div class="login-box">
+        <div class="login-icon">🔐</div>
+        <h2>FERLINK ABSEN</h2>
+        <p>Silakan masukkan password untuk masuk</p>
+        <input type="password" id="passwordInput" placeholder="Masukkan password" onkeypress="checkEnter(event)">
+        <button onclick="login()">🔓 Masuk</button>
+        <div id="loginMessage"></div>
+    </div>
+</div>    
+
+    <!-- HEADER -->
+    <header>
+        <div class="brand-title">✨ Ferlink Absen</div>
+        <div style="font-size: 13px; opacity: 0.9;" id="headerUserRole">Sistem Presensi Digital</div>
+    </header>
+
+    <div class="container">
+
+        <!-- Tab Navigasi Halaman -->
+        <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('tabAbsen')">📝 Presensi</button>
+            <button class="tab-btn" onclick="switchTab('tabScan')">📷 Scan Kartu</button>
+            <button class="tab-btn" onclick="switchTab('tabIdentitas')">⚙️ Identitas</button>
+        </div>
+
+        <!-- TAB 1: PRESENSI HARIAN & MULTI-KELAS -->
+        <div id="tabAbsen" class="tab-content active">
+            <div class="identity-badge">
+                <div>Sekolah: <span id="dispSchool">SD Negeri 1 Merdeka</span></div>
+                <div>Guru: <span id="dispTeacher">Ahmad Yani, S.Pd.</span></div>
+                <div>Mapel: <span id="dispSubject">IPAS</span></div>
+            </div>
+
+            <!-- CARD PEMILIH KELAS -->
+            <div class="card" style="background: #f8fafc; border: 2px dashed #cbd5e1;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label style="font-size: 13px; font-weight: bold; color: #1c335a; margin:0;">Pilih Kelas / Rombel Aktif:</label>
+                    <button class="btn btn-outline" style="padding: 3px 8px; font-size: 11px;" onclick="addNewClassPrompt()">➕ Tambah Kelas Baru</button>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <select id="classSelector" onchange="changeActiveClass()" style="flex-grow: 1; font-weight: bold; color: #1877f2;"></select>
+                    <button class="btn btn-danger" style="padding: 8px 12px; font-size: 12px;" onclick="deleteCurrentClass()" title="Hapus Kelas Ini">🗑️</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="margin-bottom:15px;">
+                    <label style="font-size:12px; font-weight:bold; color:#64748b;">Tanggal Absen:</label>
+                    <input type="date" id="absenDate" onchange="loadAttendanceForDate()">
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box stat-hadir"><span class="stat-num" id="cntHadir">0</span><span class="stat-lbl">Hadir</span></div>
+                    <div class="stat-box stat-izin"><span class="stat-num" id="cntIzin">0</span><span class="stat-lbl">Izin</span></div>
+                    <div class="stat-box stat-sakit"><span class="stat-num" id="cntSakit">0</span><span class="stat-lbl">Sakit</span></div>
+                    <div class="stat-box stat-alpa"><span class="stat-num" id="cntAlpa">0</span><span class="stat-lbl">Alpa</span></div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="saveAttendance()">💾 Simpan Absen</button>
+                    <button class="btn btn-outline" onclick="setAllStatus('Hadir')">✅ Semua Hadir</button>
+                    <button class="btn btn-success" onclick="openExportModal()">📊 Unduh Excel</button>
+                </div>
+            </div>
+
+            <!-- Daftar Siswa Per Kelas -->
+            <div class="card">
+                <div class="card-title">
+                    <span>👥 Daftar Siswa (<span id="totalStudents">0</span>) - <span id="activeClassNameTitle"></span></span>
+                    <button class="btn btn-outline" style="padding: 4px 10px; font-size:11px;" onclick="toggleStudentManager()">✏️ Edit Siswa Kelas Ini</button>
+                </div>
+
+                <div id="studentManagerArea" style="display:none; margin-bottom:15px; background:#f8fafc; padding:15px; border-radius:14px; border:1px dashed #cbd5e1;">
+                    <label style="font-size:12px; font-weight:bold; color:#475569; display:block; margin-bottom:6px;">Masukkan Nama Siswa untuk Kelas ini (1 nama per baris):</label>
+                    <textarea id="rawStudentInput" rows="6" placeholder="Contoh:&#10;Ahmad Dahlan&#10;Budi Santoso"></textarea>
+                    <button class="btn btn-primary" style="margin-top:10px;" onclick="saveStudentList()">Simpan Daftar Siswa Kelas Ini</button>
+                </div>
+
+                <div class="student-list" id="studentListContainer"></div>
+            </div>
+        </div>
+
+        <!-- TAB 2: SCAN KARTU -->
+        <div id="tabScan" class="tab-content">
+            <div class="card">
+                <div class="card-title">📷 Pemindai Kartu Absen (QR Code)</div>
+                <p style="font-size:13px; color:#64748b; margin-bottom:15px;">Arahkan kamera HP ke QR Code kartu siswa untuk mencatat kehadiran secara otomatis pada kelas aktif.</p>
+                
+                <div style="background: #eef5ff; padding: 10px 14px; border-radius: 10px; margin-bottom: 12px; font-size: 13px; color: #1e3a6d;">
+                    <div>Kelas Aktif: <strong id="scanActiveclassDisplay" style="color: #1877f2;">-</strong></div>
+                    <div>Tanggal Absen: <strong id="scanActiveDateDisplay">-</strong></div>
+                </div>
+
+                <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                    <button class="btn btn-success" onclick="startScanner()">▶️ Mulai Kamera Scan</button>
+                    <button class="btn btn-danger" onclick="stopScanner()">⏹️ Matikan Kamera</button>
+                </div>
+
+                <!-- Area Kamera -->
+                <div id="reader"></div>
+
+                <!-- Notifikasi Hasil Scan Terakhir -->
+                <div id="scanResultBox" style="margin-top: 15px; padding: 15px; border-radius: 14px; background: #f8fafc; border: 2px solid #e2e8f0; text-align: center;">
+                    <span style="font-size: 13px; color: #64748b; display: block;">Status Scan Terakhir:</span>
+                    <strong id="scanStatusText" style="font-size: 16px; color: #1e3a6d;">Menunggu pemindaian kartu...</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: IDENTITAS SEKOLAH & GURU (Tanpa Kelas) -->
+        <div id="tabIdentitas" class="tab-content">
+            <div class="card">
+                <div class="card-title">🏫 Pengaturan Identitas Sekolah & Pengajar</div>
+                <div class="form-group">
+                    <label>Nama Sekolah / Instansi:</label>
+                    <input type="text" id="cfgSchool">
+                </div>
+                <div class="form-group">
+                    <label>Nama Guru Pengajar:</label>
+                    <input type="text" id="cfgTeacher">
+                </div>
+                <div class="form-group">
+                    <label>NIP Guru (Opsional):</label>
+                    <input type="text" id="cfgNip">
+                </div>
+                <div class="form-group">
+                    <label>Mata Pelajaran:</label>
+                    <input type="text" id="cfgSubject">
+                </div>
+                <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="saveIdentity()">💾 Simpan Identitas</button>
+            </div>
+        </div>
+
+        <footer>
+            &copy; 2026 Ferlink-Media by Robie Ferli. All Right Reserved
+        </footer>
+    </div>
+
+    <!-- Modal Unduh Rekap -->
+    <div class="modal" id="exportModal">
+        <div class="modal-content" style="text-align: left;">
+            <h3 style="margin-bottom:15px; color:#1c335a;">📊 Unduh Rekapitulasi Absensi</h3>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size:12px; font-weight:bold; color:#64748b; display:block; margin-bottom:4px;">Tanggal Mulai:</label>
+                <input type="date" id="startDate">
+            </div>
+            <div style="margin-bottom: 18px;">
+                <label style="font-size:12px; font-weight:bold; color:#64748b; display:block; margin-bottom:4px;">Tanggal Akhir:</label>
+                <input type="date" id="endDate">
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end;">
+                <button class="btn btn-outline" onclick="closeExportModal()">Batal</button>
+                <button class="btn btn-success" onclick="processExportExcel()">Download Excel (.xlsx)</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+        const PASSWORD_FERLINK = "123456";    
+        const PASSWORD_ADMIN = "admin123";      
+
+        function login() {
+            const password = document.getElementById("passwordInput").value;
+            const message = document.getElementById("loginMessage");
+            if (password === PASSWORD_FERLINK) {
+                document.getElementById("loginScreen").style.display = "none";
+                message.innerText = ""; 
+            } else {
+                message.innerText = "❌ Password salah! (Gunakan password utama aplikasi)";
+                message.style.color = "#dc3545";
+            }
+        }
+
+        function checkEnter(event) {
+            if (event.key === "Enter") {
+                login();
+            }
+        }
+
+        // Konfigurasi Identitas (Tanpa Nama Kelas)
+        let identity = JSON.parse(localStorage.getItem('ferlink_identity_v2')) || {
+            school: "SD Negeri 1 Merdeka", teacher: "Ahmad Yani, S.Pd.", nip: "-", subject: "IPAS"
+        };
+
+        // Daftar Kelas yang dikelola guru mapel
+        let classList = JSON.parse(localStorage.getItem('ferlink_classlist')) || ["Kelas 7A", "Kelas 7B", "Kelas 8A"];
+        let activeClass = localStorage.getItem('ferlink_activeclass') || classList[0];
+
+        // Database Siswa & Riwayat per Kelas menggunakan objek
+        let allStudentsData = JSON.parse(localStorage.getItem('ferlink_all_students_v2')) || {
+            "Kelas 7A": ["ABDUL KHOLID", "AISYAH", "AQILA AZZAHRA", "ATHIRAH", "AUDIFA PUTRI WAKARI"],
+            "Kelas 7B": ["BINTANG", "CHANDRA", "DIAN", "EKA"],
+            "Kelas 8A": ["FAHRI", "GITA", "HADI"]
+        };
+
+        let allAttendanceHistory = JSON.parse(localStorage.getItem('ferlink_all_attendance_v2')) || {};
+        let currentDailyState = {};
+
+        document.getElementById('absenDate').valueAsDate = new Date();
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            if(tabId === 'tabAbsen') document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            else if(tabId === 'tabScan') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('scanActiveDateDisplay').innerText = document.getElementById('absenDate').value;
+                document.getElementById('scanActiveclassDisplay').innerText = activeClass;
+            }
+            else document.querySelectorAll('.tab-btn')[2].classList.add('active');
+
+            document.getElementById(tabId).classList.add('active');
+            
+            if(tabId !== 'tabScan') {
+                stopScanner();
+            }
+        }
+
+        function loadIdentityUI() {
+            document.getElementById('dispSchool').innerText = identity.school;
+            document.getElementById('dispTeacher').innerText = identity.teacher;
+            document.getElementById('dispSubject').innerText = identity.subject;
+
+            document.getElementById('cfgSchool').value = identity.school;
+            document.getElementById('cfgTeacher').value = identity.teacher;
+            document.getElementById('cfgNip').value = identity.nip;
+            document.getElementById('cfgSubject').value = identity.subject;
+
+            populateClassSelector();
+        }
+
+        function populateClassSelector() {
+            const selector = document.getElementById('classSelector');
+            selector.innerHTML = '';
+            classList.forEach(className => {
+                let opt = document.createElement('option');
+                opt.value = className;
+                opt.innerText = className;
+                if (className === activeClass) opt.selected = true;
+                selector.appendChild(opt);
+            });
+            document.getElementById('activeClassNameTitle').innerText = activeClass;
+        }
+
+        function changeActiveClass() {
+            const selector = document.getElementById('classSelector');
+            activeClass = selector.value;
+            localStorage.setItem('ferlink_activeclass', activeClass);
+            document.getElementById('activeClassNameTitle').innerText = activeClass;
+            loadAttendanceForDate();
+        }
+
+        function addNewClassPrompt() {
+            let newName = prompt("Masukkan nama kelas baru (Contoh: Kelas 9C):");
+            if (!newName) return;
+            newName = newName.trim();
+            if (classList.includes(newName)) {
+                alert("Nama kelas tersebut sudah ada!");
+                return;
+            }
+            classList.push(newName);
+            localStorage.setItem('ferlink_classlist', JSON.stringify(classList));
+            
+            // Inisialisasi kosong jika belum ada
+            if (!allStudentsData[newName]) {
+                allStudentsData[newName] = [];
+                localStorage.setItem('ferlink_all_students_v2', JSON.stringify(allStudentsData));
+            }
+
+            activeClass = newName;
+            localStorage.setItem('ferlink_activeclass', activeClass);
+            loadIdentityUI();
+            loadAttendanceForDate();
+            alert(`✅ Kelas "${newName}" berhasil ditambahkan! Silakan edit daftar siswanya.`);
+        }
+
+        function deleteCurrentClass() {
+            if (classList.length <= 1) {
+                alert("Minimal harus ada 1 kelas di dalam aplikasi!");
+                return;
+            }
+            let adminPass = prompt(`Masukkan password admin untuk menghapus kelas "${activeClass}":`);
+            if (adminPass !== PASSWORD_ADMIN) {
+                alert("❌ Password admin salah!");
+                return;
+            }
+
+            if (confirm(`Apakah Anda yakin ingin menghapus "${activeClass}" beserta seluruh data absensinya?`)) {
+                classList = classList.filter(c => c !== activeClass);
+                localStorage.setItem('ferlink_classlist', JSON.stringify(classList));
+                activeClass = classList[0];
+                localStorage.setItem('ferlink_activeclass', activeClass);
+                loadIdentityUI();
+                loadAttendanceForDate();
+                alert("✅ Kelas berhasil dihapus.");
+            }
+        }
+
+        function saveIdentity() {
+            let adminPass = prompt("Masukkan Password Khusus Admin untuk mengubah identitas sekolah:");
+            if (adminPass === null) return; 
+
+            if (adminPass !== PASSWORD_ADMIN) {
+                alert("❌ Password admin salah! Anda tidak memiliki hak untuk mengubah identitas.");
+                return;
+            }
+
+            identity = {
+                school: document.getElementById('cfgSchool').value || "-",
+                teacher: document.getElementById('cfgTeacher').value || "-",
+                nip: document.getElementById('cfgNip').value || "-",
+                subject: document.getElementById('cfgSubject').value || "-"
+            };
+            localStorage.setItem('ferlink_identity_v2', JSON.stringify(identity));
+            loadIdentityUI();
+            alert("✅ Identitas sekolah & guru berhasil diubah dan dikunci kembali!");
+            switchTab('tabAbsen');
+        }
+
+        function loadAttendanceForDate() {
+            const dateVal = document.getElementById('absenDate').value;
+            if (!allAttendanceHistory[activeClass]) {
+                allAttendanceHistory[activeClass] = {};
+            }
+
+            if (allAttendanceHistory[activeClass][dateVal]) {
+                currentDailyState = { ...allAttendanceHistory[activeClass][dateVal] };
+            } else {
+                currentDailyState = {};
+                let currentStudents = allStudentsData[activeClass] || [];
+                currentStudents.forEach(name => { currentDailyState[name] = 'Alpa'; });
+            }
+            renderStudents();
+        }
+
+        function renderStudents() {
+            const container = document.getElementById('studentListContainer');
+            container.innerHTML = '';
+
+            let currentStudents = allStudentsData[activeClass] || [];
+
+            currentStudents.forEach((name, index) => {
+                if (!currentDailyState[name]) currentDailyState[name] = 'Alpa';
+
+                const item = document.createElement('div');
+                item.className = 'student-item';
+                item.innerHTML = `
+                    <div class="student-name">${index + 1}. ${name}</div>
+                    <div class="status-group">
+                        ${renderStatusRadio(name, 'Hadir')}
+                        ${renderStatusRadio(name, 'Izin')}
+                        ${renderStatusRadio(name, 'Sakit')}
+                        ${renderStatusRadio(name, 'Alpa')}
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+            document.getElementById('totalStudents').innerText = currentStudents.length;
+            updateStats();
+        }
+
+        function renderStatusRadio(name, status) {
+            const isChecked = currentDailyState[name] === status ? 'checked' : '';
+            return `
+                <label class="status-btn">
+                    <input type="radio" name="status_${name}" value="${status}" ${isChecked} onchange="updateStudentStatus('${name}', '${status}')">
+                    <span class="status-label">${status}</span>
+                </label>
+            `;
+        }
+
+        function updateStudentStatus(name, status) {
+            currentDailyState[name] = status;
+            updateStats();
+        }
+
+        function updateStats() {
+            let cntH = 0, cntI = 0, cntS = 0, cntA = 0;
+            Object.values(currentDailyState).forEach(status => {
+                if (status === 'Hadir') cntH++;
+                else if (status === 'Izin') cntI++;
+                else if (status === 'Sakit') cntS++;
+                else if (status === 'Alpa') cntA++;
+            });
+            document.getElementById('cntHadir').innerText = cntH;
+            document.getElementById('cntIzin').innerText = cntI;
+            document.getElementById('cntSakit').innerText = cntS;
+            document.getElementById('cntAlpa').innerText = cntA;
+        }
+
+        function setAllStatus(status) {
+            let currentStudents = allStudentsData[activeClass] || [];
+            currentStudents.forEach(name => { currentDailyState[name] = status; });
+            renderStudents();
+        }
+
+        function saveAttendance() {
+            const dateVal = document.getElementById('absenDate').value;
+            if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
+            
+            allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
+            localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
+            alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan!`);
+        }
+
+        function toggleStudentManager() {
+            const area = document.getElementById('studentManagerArea');
+            if (area.style.display === 'none') {
+                let currentStudents = allStudentsData[activeClass] || [];
+                document.getElementById('rawStudentInput').value = currentStudents.join('\n');
+                area.style.display = 'block';
+            } else {
+                area.style.display = 'none';
+            }
+        }
+
+        function saveStudentList() {
+            const rawText = document.getElementById('rawStudentInput').value;
+            const newStudents = rawText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+
+            if (newStudents.length === 0) {
+                alert("Daftar nama siswa tidak boleh kosong!");
+                return;
+            }
+
+            allStudentsData[activeClass] = newStudents;
+            localStorage.setItem('ferlink_all_students_v2', JSON.stringify(allStudentsData));
+            toggleStudentManager();
+            loadAttendanceForDate();
+            alert(`✅ Daftar siswa ${activeClass} berhasil diperbarui!`);
+        }
+
+        let html5QrCode = null;
+
+        function startScanner() {
+            if (html5QrCode && html5QrCode.isScanning) return;
+
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+            html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                (decodedText) => {
+                    handleScannedStudent(decodedText.trim());
+                },
+                (errorMessage) => {}
+            ).catch(err => {
+                alert("Gagal membuka kamera. Pastikan izin kamera di browser sudah diaktifkan.");
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrCode && html5QrCode.isScanning) {
+                html5QrCode.stop().then(() => {
+                    html5QrCode.clear();
+                }).catch(err => {
+                    console.error("Gagal menghentikan scanner", err);
+                });
+            }
+        }
+
+        function handleScannedStudent(studentName) {
+            const resultText = document.getElementById('scanStatusText');
+            const resultBox = document.getElementById('scanResultBox');
+            let currentStudents = allStudentsData[activeClass] || [];
+
+            if (currentStudents.includes(studentName)) {
+                currentDailyState[studentName] = 'Hadir';
+                
+                const dateVal = document.getElementById('absenDate').value;
+                if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
+                allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
+                localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
+                
+                renderStudents();
+
+                resultText.innerHTML = `✅ Berhasil Absen (${activeClass}): <b style="color: #28a745;">${studentName}</b> (Hadir)`;
+                resultBox.style.borderColor = "#28a745";
+                resultBox.style.background = "#e8f8ed";
+
+                if (navigator.vibrate) navigator.vibrate(200);
+            } else {
+                resultText.innerHTML = `❌ Kartu Tidak Dikenal: <b>"${studentName}"</b> tidak terdaftar di ${activeClass}.`;
+                resultBox.style.borderColor = "#dc3545";
+                resultBox.style.background = "#fde8e8";
+            }
+        }
+
+        function openExportModal() {
+            document.getElementById('exportModal').style.display = 'flex';
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            document.getElementById('startDate').valueAsDate = firstDay;
+            document.getElementById('endDate').valueAsDate = today;
+        }
+
+        function closeExportModal() {
+            document.getElementById('exportModal').style.display = 'none';
+        }
+
+        function processExportExcel() {
+            const startVal = document.getElementById('startDate').value;
+            const endVal = document.getElementById('endDate').value;
+            if (!startVal || !endVal) { alert("Pilih tanggal awal dan akhir!"); return; }
+
+            let classHistory = (allAttendanceHistory[activeClass]) ? allAttendanceHistory[activeClass] : {};
+            const activeDates = Object.keys(classHistory).filter(d => d >= startVal && d <= endVal);
+            if (activeDates.length === 0) { alert(`Tidak ada data absensi untuk ${activeClass} di rentang tanggal tersebut!`); return; }
+
+            let excelRows = [
+                ["LAPORAN REKAPITULASI KEHADIRAN SISWA"],
+                ["Sekolah", ": " + identity.school],
+                ["Guru Pengajar", ": " + identity.teacher + (identity.nip !== '-' ? " (NIP: " + identity.nip + ")" : "")],
+                ["Kelas & Mapel", ": " + activeClass + " / " + identity.subject],
+                ["Periode Rekap", ": " + startVal + " s/d " + endVal],
+                []
+            ];
+
+            excelRows.push(["No", "Nama Siswa", "Total Hadir", "Total Izin", "Total Sakit", "Total Alpa", "Total Pertemuan", "Persentase Kehadiran"]);
+
+            let currentStudents = allStudentsData[activeClass] || [];
+
+            currentStudents.forEach((name, index) => {
+                let totalHadir = 0, totalIzin = 0, totalSakit = 0, totalAlpa = 0;
+                activeDates.forEach(d => {
+                    const status = classHistory[d] && classHistory[d][name] ? classHistory[d][name] : 'Alpa';
+                    if (status === 'Hadir') totalHadir++;
+                    else if (status === 'Izin') totalIzin++;
+                    else if (status === 'Sakit') totalSakit++;
+                    else if (status === 'Alpa') totalAlpa++;
+                });
+
+                const totalPertemuan = activeDates.length;
+                const persentase = totalPertemuan > 0 ? ((totalHadir / totalPertemuan) * 100).toFixed(0) + '%' : '0%';
+
+                excelRows.push([index + 1, name, totalHadir, totalIzin, totalSakit, totalAlpa, totalPertemuan, persentase]);
+            });
+
+            const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
+            XLSX.writeFile(workbook, `Rekap_Absen_${activeClass.replace(/[^a-zA-Z0-9]/g, "_")}_${startVal}_sd_${endVal}.xlsx`);
+            closeExportModal();
+        }
+
+        loadIdentityUI();
+        loadAttendanceForDate();
+    </script>
+</body>
+</html>
