@@ -438,6 +438,12 @@
                     <label>Mata Pelajaran:</label>
                     <input type="text" id="cfgSubject">
                 </div>
+                <!-- Pengaturan Link Cloud Database / Web App Sekolah -->
+                <div class="form-group" style="background: #f0f7ff; padding: 12px; border-radius: 12px; border: 1.5px dashed #1877f2;">
+                    <label style="color: #1877f2;">🔗 Link Database Sekolah (Web App URL):</label>
+                    <input type="text" id="cfgDatabaseUrl" placeholder="https://script.google.com/macros/s/.../exec">
+                    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Masukkan link Google Apps Script milik sekolah agar data absensi terkirim ke Google Drive mereka.</span>
+                </div>
                 <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="saveIdentity()">💾 Simpan Identitas</button>
             </div>
         </div>
@@ -509,9 +515,9 @@
             }
         }
 
-        // Konfigurasi Identitas
+        // Konfigurasi Identitas (Termasuk databaseUrl)
         let identity = JSON.parse(localStorage.getItem('ferlink_identity_v2')) || {
-            school: "SD Negeri 1 Merdeka", teacher: "Ahmad Yani, S.Pd.", nip: "-", subject: "IPAS"
+            school: "SD Negeri 1 Merdeka", teacher: "Ahmad Yani, S.Pd.", nip: "-", subject: "IPAS", databaseUrl: ""
         };
 
         // Daftar Kelas
@@ -558,6 +564,7 @@
             document.getElementById('cfgTeacher').value = identity.teacher;
             document.getElementById('cfgNip').value = identity.nip;
             document.getElementById('cfgSubject').value = identity.subject;
+            document.getElementById('cfgDatabaseUrl').value = identity.databaseUrl || "";
 
             populateClassSelector();
         }
@@ -641,11 +648,12 @@
                 school: document.getElementById('cfgSchool').value || "-",
                 teacher: document.getElementById('cfgTeacher').value || "-",
                 nip: document.getElementById('cfgNip').value || "-",
-                subject: document.getElementById('cfgSubject').value || "-"
+                subject: document.getElementById('cfgSubject').value || "-",
+                databaseUrl: document.getElementById('cfgDatabaseUrl').value.trim() || ""
             };
             localStorage.setItem('ferlink_identity_v2', JSON.stringify(identity));
             loadIdentityUI();
-            alert("✅ Identitas sekolah & guru berhasil diubah dan dikunci kembali!");
+            alert("✅ Identitas sekolah & link database berhasil diubah dan dikunci kembali!");
             switchTab('tabAbsen');
         }
 
@@ -727,13 +735,40 @@
             renderStudents();
         }
 
+        // Fungsi Simpan Absen (Lokal + Kirim ke Cloud Google Spreadsheet Sekolah)
         function saveAttendance() {
             const dateVal = document.getElementById('absenDate').value;
             if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
             
+            // 1. Simpan ke LocalStorage aplikasi (memori lokal browser)
             allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
             localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
-            alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan!`);
+
+            alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan secara lokal!`);
+
+            // 2. Kirim juga ke Google Spreadsheet Sekolah jika link-nya sudah diatur
+            const schoolURL = identity.databaseUrl;
+            if (schoolURL && schoolURL.startsWith('http')) {
+                const payload = {
+                    tanggal: dateVal,
+                    kelas: activeClass,
+                    absensi: currentDailyState
+                };
+
+                console.log("Mengirim data ke cloud sekolah...");
+                fetch(schoolURL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(() => {
+                    console.log("Data berhasil dikirim ke Google Spreadsheet sekolah!");
+                })
+                .catch(error => {
+                    console.error("Gagal mengirim ke cloud:", error);
+                });
+            }
         }
 
         function toggleStudentManager() {
