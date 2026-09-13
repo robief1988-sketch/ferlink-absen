@@ -8,6 +8,34 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <!-- Library HTML5 QR Code Scanner untuk fitur Scan Kartu -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <!-- KODE PENGAMAN WEBSITE (CEGAH KLIK KANAN & INSPECT) -->
+    <script>
+        // 1. Mencegah Klik Kanan
+        document.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
+        // 2. Mencegah Tombol Pintasan Inspect, View Source, & Save As
+        document.addEventListener('keydown', function(e) {
+            // Blokir F12
+            if (e.key === 'F12') {
+                e.preventDefault();
+                return false;
+            }
+            // Blokir Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
+                e.preventDefault();
+                return false;
+            }
+            // Blokir Ctrl+U (View Source) dan Ctrl+S (Save As)
+            if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's')) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    </script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -472,7 +500,7 @@
         </div>
     </div>
 
-<script>
+    <script>
         const PASSWORD_FERLINK = "123456";    
         const PASSWORD_ADMIN = "admin123";      
 
@@ -735,18 +763,15 @@
             renderStudents();
         }
 
-        // Fungsi Simpan Absen (Lokal + Kirim ke Cloud Google Spreadsheet Sekolah)
         function saveAttendance() {
             const dateVal = document.getElementById('absenDate').value;
             if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
             
-            // 1. Simpan ke LocalStorage aplikasi (memori lokal browser)
             allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
             localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
 
             alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan secara lokal!`);
 
-            // 2. Kirim juga ke Google Spreadsheet Sekolah jika link-nya sudah diatur
             const schoolURL = identity.databaseUrl;
             if (schoolURL && schoolURL.startsWith('http')) {
                 const payload = {
@@ -755,17 +780,12 @@
                     absensi: currentDailyState
                 };
 
-                console.log("Mengirim data ke cloud sekolah...");
                 fetch(schoolURL, {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
-                })
-                .then(() => {
-                    console.log("Data berhasil dikirim ke Google Spreadsheet sekolah!");
-                })
-                .catch(error => {
+                }).catch(error => {
                     console.error("Gagal mengirim ke cloud:", error);
                 });
             }
@@ -803,7 +823,7 @@
         function startScanner() {
             if (html5QrCode && html5QrCode.isScanning) return;
 
-            const selectedCamera = document.getElementById('cameraSelector').value; // 'environment' atau 'user'
+            const selectedCamera = document.getElementById('cameraSelector').value;
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
@@ -843,7 +863,7 @@
                 localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
                 
                 renderStudents();
-                playBeepSound(); // Membunyikan alarm beep tanda sukses
+                playBeepSound();
 
                 resultText.innerHTML = `✅ Berhasil Absen (${activeClass}): <b style="color: #28a745;">${studentName}</b> (Hadir)`;
                 resultBox.style.borderColor = "#28a745";
@@ -908,8 +928,6 @@
             });
 
             const worksheet = XLSX.utils.aoa_to_sheet(excelRows);
-            
-            // FITUR PENGUNCIAN EXCEL (Protect Sheet agar terkunci/tidak bisa diedit sembarangan)
             worksheet['!protect'] = { password: 'ferlink_secure_excel' };
 
             const workbook = XLSX.utils.book_new();
