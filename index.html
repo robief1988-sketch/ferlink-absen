@@ -9,32 +9,10 @@
     <!-- Library HTML5 QR Code Scanner untuk fitur Scan Kartu -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     
-    <!-- KODE PENGAMAN WEBSITE (CEGAH KLIK KANAN & INSPECT) -->
-    <script>
-        // 1. Mencegah Klik Kanan
-        document.addEventListener('contextmenu', function(e) {
-            e.preventDefault();
-        });
-
-        // 2. Mencegah Tombol Pintasan Inspect, View Source, & Save As
-        document.addEventListener('keydown', function(e) {
-            // Blokir F12
-            if (e.key === 'F12') {
-                e.preventDefault();
-                return false;
-            }
-            // Blokir Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
-            if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) {
-                e.preventDefault();
-                return false;
-            }
-            // Blokir Ctrl+U (View Source) dan Ctrl+S (Save As)
-            if (e.ctrlKey && (e.key === 'U' || e.key === 'u' || e.key === 'S' || e.key === 's')) {
-                e.preventDefault();
-                return false;
-            }
-        });
-    </script>
+    <!-- Firebase SDK (Compat Version) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -131,7 +109,7 @@
             margin-bottom: 6px;
         }
 
-        input[type="date"], input[type="text"], select, textarea {
+        input[type="date"], input[type="text"], input[type="email"], input[type="password"], select, textarea {
             width: 100%;
             padding: 11px 14px;
             border: 2px solid #d7e9f5;
@@ -273,7 +251,7 @@
             .status-label { padding: 6px 8px; font-size: 11px; }
         }
 
-        /* HALAMAN LOGIN */
+        /* HALAMAN LOGIN CLOUD */
         #loginScreen {
             position: fixed;
             inset: 0;
@@ -295,45 +273,27 @@
             box-shadow: 0 15px 40px rgba(0,0,0,0.25);
         }
 
-        .login-icon { font-size: 50px; margin-bottom: 10px; }
-        .login-box h2 { color: #1c335a; margin-bottom: 8px; }
-        .login-box p { color: #64748b; font-size: 13px; margin-bottom: 20px; }
-
-        #passwordInput {
-            width: 100%;
-            padding: 13px;
-            border: 2px solid #d7e9f5;
-            border-radius: 12px;
-            font-size: 15px;
-            outline: none;
-            margin-bottom: 12px;
-        }
-        #passwordInput:focus { border-color: #1877f2; }
-        .login-box button {
-            width: 100%;
-            padding: 13px;
-            border: none;
-            border-radius: 12px;
-            background: #1877f2;
-            color: white;
-            font-weight: bold;
-            font-size: 15px;
-            cursor: pointer;
-        }
-        .login-box button:hover { background: #1162cd; }
+        .login-icon { font-size: 45px; margin-bottom: 8px; }
+        .login-box h2 { color: #1c335a; margin-bottom: 6px; font-size: 20px; }
+        .login-box p { color: #64748b; font-size: 13px; margin-bottom: 18px; }
         #loginMessage { margin-top: 12px; font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<!-- HALAMAN LOGIN -->
+<!-- HALAMAN LOGIN CLOUD -->
 <div id="loginScreen">
     <div class="login-box">
         <div class="login-icon">🔐</div>
-        <h2>FERLINK ABSEN</h2>
-        <p>Silakan masukkan password untuk masuk</p>
-        <input type="password" id="passwordInput" placeholder="Masukkan password" onkeypress="checkEnter(event)">
-        <button onclick="login()">🔓 Masuk</button>
+        <h2>FERLINK ABSEN CLOUD</h2>
+        <p>Silakan masuk atau daftar akun baru guru</p>
+        
+        <input type="email" id="emailInput" placeholder="Masukkan Email Anda" style="margin-bottom: 10px;">
+        <input type="password" id="passwordInput" placeholder="Masukkan Password" style="margin-bottom: 12px;" onkeypress="checkEnter(event)">
+        
+        <button onclick="loginUser()" style="width: 100%; padding: 12px; border: none; border-radius: 12px; background: #1877f2; color: white; font-weight: bold; cursor: pointer; margin-bottom: 8px; font-size: 14px;">🔓 Masuk</button>
+       
+        
         <div id="loginMessage"></div>
     </div>
 </div>    
@@ -341,7 +301,7 @@
     <!-- HEADER -->
     <header>
         <div class="brand-title">✨ Ferlink Absen</div>
-        <div style="font-size: 13px; opacity: 0.9;" id="headerUserRole">Sistem Presensi Digital</div>
+        <div style="font-size: 13px; opacity: 0.9;" id="headerUserRole">Sistem Presensi Cloud</div>
     </header>
 
     <div class="container">
@@ -466,12 +426,6 @@
                     <label>Mata Pelajaran:</label>
                     <input type="text" id="cfgSubject">
                 </div>
-                <!-- Pengaturan Link Cloud Database / Web App Sekolah -->
-                <div class="form-group" style="background: #f0f7ff; padding: 12px; border-radius: 12px; border: 1.5px dashed #1877f2;">
-                    <label style="color: #1877f2;">🔗 Link Database Sekolah (Web App URL):</label>
-                    <input type="text" id="cfgDatabaseUrl" placeholder="https://script.google.com/macros/s/.../exec">
-                    <span style="font-size: 11px; color: #64748b; display: block; margin-top: 4px;">Masukkan link Google Apps Script milik sekolah agar data absensi terkirim ke Google Drive mereka.</span>
-                </div>
                 <button class="btn btn-primary" style="width:100%; justify-content:center; padding:12px;" onclick="saveIdentity()">💾 Simpan Identitas</button>
             </div>
         </div>
@@ -500,25 +454,78 @@
         </div>
     </div>
 
-    <script>
-        const PASSWORD_FERLINK = "123456";    
+<script>
+        // Konfigurasi Firebase Anda
+        const firebaseConfig = {
+          apiKey: "AIzaSyCK_eLaaJrD19AcEoC-U8upYQnknf1Uzy0",
+          authDomain: "ferlink-absen.firebaseapp.com",
+          projectId: "ferlink-absen",
+          storageBucket: "ferlink-absen.firebasestorage.app",
+          messagingSenderId: "845486770483",
+          appId: "1:845486770483:web:85137d6aa2615acd8f5646"
+        };
+
+        // Inisialisasi Firebase Compat
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        let currentUserId = null;
         const PASSWORD_ADMIN = "admin123";      
 
-        function login() {
+        // Sistem Pendaftaran Akun Guru
+        function registerUser() {
+            const email = document.getElementById("emailInput").value.trim();
             const password = document.getElementById("passwordInput").value;
             const message = document.getElementById("loginMessage");
-            if (password === PASSWORD_FERLINK) {
-                document.getElementById("loginScreen").style.display = "none";
-                message.innerText = ""; 
-            } else {
-                message.innerText = "❌ Password salah! (Gunakan password utama aplikasi)";
+
+            if (!email || !password) {
                 message.style.color = "#dc3545";
+                message.innerText = "❌ Email dan password tidak boleh kosong!";
+                return;
             }
+
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    message.style.color = "#28a745";
+                    message.innerText = "✅ Pendaftaran berhasil! Silakan klik tombol Masuk.";
+                })
+                .catch((error) => {
+                    message.style.color = "#dc3545";
+                    message.innerText = "❌ Gagal Daftar: " + error.message;
+                });
+        }
+
+        // Sistem Login Guru
+        function loginUser() {
+            const email = document.getElementById("emailInput").value.trim();
+            const password = document.getElementById("passwordInput").value;
+            const message = document.getElementById("loginMessage");
+
+            if (!email || !password) {
+                message.style.color = "#dc3545";
+                message.innerText = "❌ Masukkan email dan password Anda!";
+                return;
+            }
+
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    currentUserId = userCredential.user.uid;
+                    document.getElementById("loginScreen").style.display = "none";
+                    message.innerText = "";
+                    
+                    // Tarik data guru ini dari Internet (Cloud Firestore)
+                    loadDataFromCloud();
+                })
+                .catch((error) => {
+                    message.style.color = "#dc3545";
+                    message.innerText = "❌ Login Gagal: Periksa kembali email & password.";
+                });
         }
 
         function checkEnter(event) {
             if (event.key === "Enter") {
-                login();
+                loginUser();
             }
         }
 
@@ -543,26 +550,61 @@
             }
         }
 
-        // Konfigurasi Identitas (Termasuk databaseUrl)
-        let identity = JSON.parse(localStorage.getItem('ferlink_identity_v2')) || {
-            school: "SD Negeri 1 Merdeka", teacher: "Ahmad Yani, S.Pd.", nip: "-", subject: "IPAS", databaseUrl: ""
-        };
-
-        // Daftar Kelas
-        let classList = JSON.parse(localStorage.getItem('ferlink_classlist')) || ["Kelas 7A", "Kelas 7B", "Kelas 8A"];
-        let activeClass = localStorage.getItem('ferlink_activeclass') || classList[0];
-
-        // Database Siswa & Riwayat
-        let allStudentsData = JSON.parse(localStorage.getItem('ferlink_all_students_v2')) || {
+        // Konfigurasi Default Data Aplikasi
+        let identity = { school: "SD Negeri 1 Merdeka", teacher: "Ahmad Yani, S.Pd.", nip: "-", subject: "IPAS" };
+        let classList = ["Kelas 7A", "Kelas 7B", "Kelas 8A"];
+        let activeClass = classList[0];
+        let allStudentsData = {
             "Kelas 7A": ["ABDUL KHOLID", "AISYAH", "AQILA AZZAHRA", "ATHIRAH", "AUDIFA PUTRI WAKARI"],
             "Kelas 7B": ["BINTANG", "CHANDRA", "DIAN", "EKA"],
             "Kelas 8A": ["FAHRI", "GITA", "HADI"]
         };
-
-        let allAttendanceHistory = JSON.parse(localStorage.getItem('ferlink_all_attendance_v2')) || {};
+        let allAttendanceHistory = {};
         let currentDailyState = {};
 
         document.getElementById('absenDate').valueAsDate = new Date();
+
+        // Sinkronisasi: Ambil Data dari Cloud Firestore
+        function loadDataFromCloud() {
+            if (!currentUserId) return;
+
+            db.collection("users_absensi").doc(currentUserId).get().then((doc) => {
+                if (doc.exists) {
+                    let cloudData = doc.data();
+                    identity = cloudData.identity || identity;
+                    classList = cloudData.classList || classList;
+                    activeClass = cloudData.activeClass || classList[0];
+                    allStudentsData = cloudData.allStudentsData || allStudentsData;
+                    allAttendanceHistory = cloudData.allAttendanceHistory || {};
+                } else {
+                    // Jika akun baru, simpan data awal ke cloud
+                    saveDataToCloud();
+                }
+                loadIdentityUI();
+                loadAttendanceForDate();
+            }).catch((error) => {
+                console.error("Gagal memuat data dari cloud:", error);
+            });
+        }
+
+        // Sinkronisasi: Simpan Data ke Cloud Firestore
+        function saveDataToCloud() {
+            if (!currentUserId) return;
+
+            db.collection("users_absensi").doc(currentUserId).set({
+                identity: identity,
+                classList: classList,
+                activeClass: activeClass,
+                allStudentsData: allStudentsData,
+                allAttendanceHistory: allAttendanceHistory
+            }, { merge: true })
+            .then(() => {
+                console.log("Data berhasil disimpan ke cloud secara otomatis!");
+            })
+            .catch((error) => {
+                console.error("Gagal menyimpan data ke cloud:", error);
+            });
+        }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -592,7 +634,6 @@
             document.getElementById('cfgTeacher').value = identity.teacher;
             document.getElementById('cfgNip').value = identity.nip;
             document.getElementById('cfgSubject').value = identity.subject;
-            document.getElementById('cfgDatabaseUrl').value = identity.databaseUrl || "";
 
             populateClassSelector();
         }
@@ -613,9 +654,9 @@
         function changeActiveClass() {
             const selector = document.getElementById('classSelector');
             activeClass = selector.value;
-            localStorage.setItem('ferlink_activeclass', activeClass);
             document.getElementById('activeClassNameTitle').innerText = activeClass;
             loadAttendanceForDate();
+            saveDataToCloud();
         }
 
         function addNewClassPrompt() {
@@ -627,17 +668,15 @@
                 return;
             }
             classList.push(newName);
-            localStorage.setItem('ferlink_classlist', JSON.stringify(classList));
             
             if (!allStudentsData[newName]) {
                 allStudentsData[newName] = [];
-                localStorage.setItem('ferlink_all_students_v2', JSON.stringify(allStudentsData));
             }
 
             activeClass = newName;
-            localStorage.setItem('ferlink_activeclass', activeClass);
             loadIdentityUI();
             loadAttendanceForDate();
+            saveDataToCloud();
             alert(`✅ Kelas "${newName}" berhasil ditambahkan! Silakan edit daftar siswanya.`);
         }
 
@@ -654,11 +693,10 @@
 
             if (confirm(`Apakah Anda yakin ingin menghapus "${activeClass}" beserta seluruh data absensinya?`)) {
                 classList = classList.filter(c => c !== activeClass);
-                localStorage.setItem('ferlink_classlist', JSON.stringify(classList));
                 activeClass = classList[0];
-                localStorage.setItem('ferlink_activeclass', activeClass);
                 loadIdentityUI();
                 loadAttendanceForDate();
+                saveDataToCloud();
                 alert("✅ Kelas berhasil dihapus.");
             }
         }
@@ -676,12 +714,11 @@
                 school: document.getElementById('cfgSchool').value || "-",
                 teacher: document.getElementById('cfgTeacher').value || "-",
                 nip: document.getElementById('cfgNip').value || "-",
-                subject: document.getElementById('cfgSubject').value || "-",
-                databaseUrl: document.getElementById('cfgDatabaseUrl').value.trim() || ""
+                subject: document.getElementById('cfgSubject').value || "-"
             };
-            localStorage.setItem('ferlink_identity_v2', JSON.stringify(identity));
             loadIdentityUI();
-            alert("✅ Identitas sekolah & link database berhasil diubah dan dikunci kembali!");
+            saveDataToCloud();
+            alert("✅ Identitas sekolah & guru berhasil diubah dan dikunci kembali!");
             switchTab('tabAbsen');
         }
 
@@ -768,27 +805,8 @@
             if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
             
             allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
-            localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
-
-            alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan secara lokal!`);
-
-            const schoolURL = identity.databaseUrl;
-            if (schoolURL && schoolURL.startsWith('http')) {
-                const payload = {
-                    tanggal: dateVal,
-                    kelas: activeClass,
-                    absensi: currentDailyState
-                };
-
-                fetch(schoolURL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                }).catch(error => {
-                    console.error("Gagal mengirim ke cloud:", error);
-                });
-            }
+            saveDataToCloud();
+            alert(`✅ Absensi ${activeClass} tanggal ${dateVal} berhasil disimpan ke Cloud!`);
         }
 
         function toggleStudentManager() {
@@ -812,10 +830,10 @@
             }
 
             allStudentsData[activeClass] = newStudents;
-            localStorage.setItem('ferlink_all_students_v2', JSON.stringify(allStudentsData));
             toggleStudentManager();
             loadAttendanceForDate();
-            alert(`✅ Daftar siswa ${activeClass} berhasil diperbarui!`);
+            saveDataToCloud();
+            alert(`✅ Daftar siswa ${activeClass} berhasil diperbarui di cloud!`);
         }
 
         let html5QrCode = null;
@@ -823,7 +841,7 @@
         function startScanner() {
             if (html5QrCode && html5QrCode.isScanning) return;
 
-            const selectedCamera = document.getElementById('cameraSelector').value;
+            const selectedCamera = document.getElementById('cameraSelector').value; 
             html5QrCode = new Html5Qrcode("reader");
             const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
@@ -860,9 +878,9 @@
                 const dateVal = document.getElementById('absenDate').value;
                 if (!allAttendanceHistory[activeClass]) allAttendanceHistory[activeClass] = {};
                 allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
-                localStorage.setItem('ferlink_all_attendance_v2', JSON.stringify(allAttendanceHistory));
                 
                 renderStudents();
+                saveDataToCloud(); // Sinkronisasi otomatis saat scan berhasil
                 playBeepSound();
 
                 resultText.innerHTML = `✅ Berhasil Absen (${activeClass}): <b style="color: #28a745;">${studentName}</b> (Hadir)`;
@@ -935,9 +953,6 @@
             XLSX.writeFile(workbook, `Rekap_Absen_${activeClass.replace(/[^a-zA-Z0-9]/g, "_")}_${startVal}_sd_${endVal}.xlsx`);
             closeExportModal();
         }
-
-        loadIdentityUI();
-        loadAttendanceForDate();
     </script>
 </body>
 </html>
