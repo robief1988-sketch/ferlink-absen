@@ -274,9 +274,37 @@
         }
 
         .login-icon { font-size: 45px; margin-bottom: 8px; }
-        .login-box h2 { color: #1c335a; margin-bottom: 6px; font-size: 20px; }
-        .login-box p { color: #64748b; font-size: 13px; margin-bottom: 18px; }
-        #loginMessage { margin-top: 12px; font-size: 13px; font-weight: bold; }
+        .login-box h2 { color: #1c335a; margin-bottom: 4px; font-size: 20px; }
+        .login-box p { color: #64748b; font-size: 13px; margin-bottom: 16px; }
+        
+        .promo-badge {
+            background: #e8f8ed;
+            color: #1e7e34;
+            border: 1px solid #c3e6cb;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: inline-block;
+        }
+
+        .btn-login-action {
+            width: 100%;
+            padding: 11px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .btn-login-main { background: #1877f2; color: white; margin-bottom: 8px; }
+        .btn-login-main:hover { background: #1162cd; }
+        .btn-register-sub { background: #28a745; color: white; }
+        .btn-register-sub:hover { background: #218838; }
+
+        #loginMessage { margin-top: 14px; font-size: 13px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -286,13 +314,15 @@
     <div class="login-box">
         <div class="login-icon">🔐</div>
         <h2>FERLINK ABSEN CLOUD</h2>
-        <p>Silakan masuk atau daftar akun baru guru</p>
+        <p>Aplikasi Presensi Digital Guru Interaktif</p>
+        
+        <div class="promo-badge">🎉 Coba Gratis Tanpa Biaya!</div>
         
         <input type="email" id="emailInput" placeholder="Masukkan Email Anda" style="margin-bottom: 10px;">
-        <input type="password" id="passwordInput" placeholder="Masukkan Password" style="margin-bottom: 12px;" onkeypress="checkEnter(event)">
+        <input type="password" id="passwordInput" placeholder="Masukkan Password (Min. 6 Karakter)" style="margin-bottom: 14px;" onkeypress="checkEnter(event)">
         
-        <button onclick="loginUser()" style="width: 100%; padding: 12px; border: none; border-radius: 12px; background: #1877f2; color: white; font-weight: bold; cursor: pointer; margin-bottom: 8px; font-size: 14px;">🔓 Masuk</button>
-       
+        <button onclick="loginUser()" class="btn-login-action btn-login-main">🔓 Masuk Ke Akun</button>
+        <button onclick="registerUser()" class="btn-login-action btn-register-sub">✨ Daftar Akun Baru (Gratis)</button>
         
         <div id="loginMessage"></div>
     </div>
@@ -406,7 +436,7 @@
             </div>
         </div>
 
-        <!-- TAB 3: IDENTITAS SEKOLAH & GURU (Tanpa Kelas) -->
+        <!-- TAB 3: IDENTITAS SEKOLAH & GURU -->
         <div id="tabIdentitas" class="tab-content">
             <div class="card">
                 <div class="card-title">🏫 Pengaturan Identitas Sekolah & Pengajar</div>
@@ -455,7 +485,7 @@
     </div>
 
 <script>
-        // Konfigurasi Firebase Anda
+        // Konfigurasi Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyCK_eLaaJrD19AcEoC-U8upYQnknf1Uzy0",
           authDomain: "ferlink-absen.firebaseapp.com",
@@ -473,7 +503,7 @@
         let currentUserId = null;
         const PASSWORD_ADMIN = "admin123";      
 
-        // Sistem Pendaftaran Akun Guru
+        // Sistem Pendaftaran Akun Guru Gratis
         function registerUser() {
             const email = document.getElementById("emailInput").value.trim();
             const password = document.getElementById("passwordInput").value;
@@ -485,14 +515,39 @@
                 return;
             }
 
+            if (password.length < 6) {
+                message.style.color = "#dc3545";
+                message.innerText = "❌ Password minimal harus 6 karakter!";
+                return;
+            }
+
+            message.style.color = "#0056b3";
+            message.innerText = "⏳ Sedang memproses pendaftaran akun...";
+
             auth.createUserWithEmailAndPassword(email, password)
                 .then((userCredential) => {
+                    currentUserId = userCredential.user.uid;
                     message.style.color = "#28a745";
-                    message.innerText = "✅ Pendaftaran berhasil! Silakan klik tombol Masuk.";
+                    message.innerText = "✅ Pendaftaran Berhasil! Selamat datang di Ferlink Absen.";
+                    
+                    // Buat database default untuk guru baru
+                    saveDataToCloud();
+
+                    setTimeout(() => {
+                        document.getElementById("loginScreen").style.display = "none";
+                        message.innerText = "";
+                        loadDataFromCloud();
+                    }, 1200);
                 })
                 .catch((error) => {
                     message.style.color = "#dc3545";
-                    message.innerText = "❌ Gagal Daftar: " + error.message;
+                    if(error.code === 'auth/email-already-in-use') {
+                        message.innerText = "❌ Email ini sudah terdaftar. Silakan klik tombol 'Masuk Ke Akun'.";
+                    } else if(error.code === 'auth/invalid-email') {
+                        message.innerText = "❌ Format alamat email tidak valid!";
+                    } else {
+                        message.innerText = "❌ Gagal Daftar: " + error.message;
+                    }
                 });
         }
 
@@ -508,6 +563,9 @@
                 return;
             }
 
+            message.style.color = "#0056b3";
+            message.innerText = "⏳ Memeriksa akun...";
+
             auth.signInWithEmailAndPassword(email, password)
                 .then((userCredential) => {
                     currentUserId = userCredential.user.uid;
@@ -519,7 +577,7 @@
                 })
                 .catch((error) => {
                     message.style.color = "#dc3545";
-                    message.innerText = "❌ Login Gagal: Periksa kembali email & password.";
+                    message.innerText = "❌ Login Gagal: Periksa kembali email & password Anda.";
                 });
         }
 
@@ -537,14 +595,14 @@
                 const gainNode = audioCtx.createGain();
 
                 oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); // Frekuensi nada tinggi (A5)
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
 
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
 
                 oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.15); // Durasi 150ms
+                oscillator.stop(audioCtx.currentTime + 0.15);
             } catch(e) {
                 console.log("Audio tidak didukung di browser ini", e);
             }
@@ -577,7 +635,6 @@
                     allStudentsData = cloudData.allStudentsData || allStudentsData;
                     allAttendanceHistory = cloudData.allAttendanceHistory || {};
                 } else {
-                    // Jika akun baru, simpan data awal ke cloud
                     saveDataToCloud();
                 }
                 loadIdentityUI();
@@ -880,7 +937,7 @@
                 allAttendanceHistory[activeClass][dateVal] = { ...currentDailyState };
                 
                 renderStudents();
-                saveDataToCloud(); // Sinkronisasi otomatis saat scan berhasil
+                saveDataToCloud(); 
                 playBeepSound();
 
                 resultText.innerHTML = `✅ Berhasil Absen (${activeClass}): <b style="color: #28a745;">${studentName}</b> (Hadir)`;
